@@ -1,0 +1,146 @@
+#:import dp kivy.metrics.dp
+
+FloatLayout:
+    canvas.before:
+        Color:
+            rgba: 0.95, 0.97, 1, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    # CENTER CARD
+    BoxLayout:
+        orientation: "vertical"
+        size_hint: 0.6, None
+        height: dp(380)
+        pos_hint: {"center_x": 0.5, "center_y": 0.55}
+        padding: dp(20)
+        spacing: dp(12)
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [16]
+
+        Label:
+            text: "Mariam's Health Tracker"
+            font_size: "22sp"
+            color: 0.08, 0.08, 0.1, 1
+            size_hint_y: None
+            height: dp(30)
+
+        GridLayout:
+            cols: 2
+            spacing: dp(8)
+            row_default_height: dp(36)
+            row_force_default: True
+
+            Label:
+                text: "Food"
+                color: 0.1, 0.1, 0.1, 1
+                halign: "right"
+                text_size: self.size
+            TextInput:
+                id: food
+                multiline: False
+
+            Label:
+                text: "Sugar (g)"
+                color: 0.1, 0.1, 0.1, 1
+                halign: "right"
+                text_size: self.size
+            TextInput:
+                id: sugar
+                multiline: False
+                input_filter: "float"
+
+            Label:
+                text: "Water (cups)"
+                color: 0.1, 0.1, 0.1, 1
+                halign: "right"
+                text_size: self.size
+            TextInput:
+                id: water
+                multiline: False
+                input_filter: "float"
+
+            Label:
+                text: "Insulin (units)"
+                color: 0.1, 0.1, 0.1, 1
+                halign: "right"
+                text_size: self.size
+            TextInput:
+                id: insulin
+                multiline: False
+                input_filter: "float"
+
+        # MAIN SAVE BUTTON
+        Button:
+            text: "Save Entry"
+            size_hint_y: None
+            height: dp(44)
+            background_normal: ""
+            background_color: 0.2, 0.55, 1, 1
+            color: 1, 1, 1, 1
+            on_release: app.save_entry()
+
+        # SECONDARY ACTIONS
+        BoxLayout:
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(10)
+
+            Button:
+                text: "Reset last"
+                background_normal: ""
+                background_color: 0.33, 0.33, 0.35, 1
+                color: 1, 1, 1, 1
+                on_release: app.reset_last_entry()
+
+            Button:
+                text: "Daily log"
+                background_normal: ""
+                background_color: 0.33, 0.33, 0.35, 1
+                color: 1, 1, 1, 1
+                on_release: app.show_daily_log()
+
+            Button:
+                text: "Chart"
+                background_normal: ""
+                background_color: 0.33, 0.33, 0.35, 1
+                color: 1, 1, 1, 1
+                on_release: app.show_chart()
+
+        # STATUS
+        Label:
+            text: app.status_msg
+            size_hint_y: None
+            height: dp(22)
+            color: (1, 0, 0, 1) if "Invalid" in app.status_msg else (0, 0.6, 0.1, 1)
+            halign: "center"
+            text_size: self.size
+
+    # BOTTOM TOTALS BAR
+    BoxLayout:
+        size_hint: 1, None
+        height: dp(46)
+        pos_hint: {"x": 0, "y": 0}
+        padding: dp(20), 0
+        spacing: dp(18)
+        canvas.before:
+            Color:
+                rgba: 1, 1, 1, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        Label:
+            text: "Total Sugar: " + app.totals_sugar
+            color: 0.1, 0.1, 0.1, 1
+        Label:
+            text: "Water: " + app.totals_water
+            color: 0.1, 0.1, 0.1, 1
+        Label:
+            text: "Insulin: " + app.totals_insulin
+            color: 0.1, 0.1, 0.1, 1

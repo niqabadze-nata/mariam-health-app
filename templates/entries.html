@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Today's Entries</h2>
+
+{% if not entries %}
+<p>No entries yet today.</p>
+{% else %}
+<ul>
+    {% for e in entries %}
+      <li>
+        <b>{{ e.ts[11:16] }}</b> • {{ e.food }} •
+        {{ e.sugar_g }}g • {{ e.water_cups }} cups • {{ e.insulin_units }}u
+      </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<div class="link-row">
+    <a href="{{ url_for('index') }}"><button class="btn-secondary">Back</button></a>
+</div>
+{% endblock %}
