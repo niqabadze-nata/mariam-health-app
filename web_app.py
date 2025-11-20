@@ -11,14 +11,9 @@ from controllers import (
 )
 from models import Entry
 
-from database import init_db
-
 
 app = Flask(__name__)
 app.secret_key = "mariam-secret-key"   # needed for flash messages
-
-# Ensure DB exists on startup
-init_db()
 
 
 def _to_float(value: str) -> float:
