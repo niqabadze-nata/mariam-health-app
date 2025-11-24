@@ -119,6 +119,12 @@ def settings():
     current = get_sugar_limit()
     return render_template("settings.html", limit=current)
 
+@app.route("/reset_today", methods=["POST"])
+def reset_today():
+    from controllers import delete_all_today_entries
+    delete_all_today_entries()
+    flash("Today's entries have been reset.")
+    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     app.run(debug=True)
