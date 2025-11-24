@@ -11,6 +11,7 @@ def add_entry(entry: Entry):
         "sugar_g": entry.sugar_g,
         "water_cups": entry.water_cups,
         "insulin_units": entry.insulin_units,
+        "time_eaten": entry.time_eaten.isoformat() if entry.time_eaten else None,
     }
     supabase.table("entries").insert(data).execute()
 
@@ -24,7 +25,7 @@ def _today_window():
 
 
 def get_today_totals():
-    """Calculate today totals by summing values from Supabase."""
+    """Calculate today's totals by summing values from Supabase."""
     start, end = _today_window()
     resp = (
         supabase.table("entries")
@@ -35,9 +36,9 @@ def get_today_totals():
     )
     rows = resp.data or []
 
-    total_sugar = sum(r["sugar_g"] for r in rows)
-    total_water = sum(r["water_cups"] for r in rows)
-    total_insulin = sum(r["insulin_units"] for r in rows)
+    total_sugar = sum(r.get("sugar_g", 0) for r in rows)
+    total_water = sum(r.get("water_cups", 0) for r in rows)
+    total_insulin = sum(r.get("insulin_units", 0) for r in rows)
 
     return {
         "sugar_g": total_sugar,
@@ -92,11 +93,5 @@ def delete_last_today_entry():
 def delete_all_today_entries():
     """Delete all today's entries."""
     start, end = _today_window()
-    resp = (
-        supabase.table("entries")
-        .delete()
-        .gte("ts", start)
-        .lt("ts", end)
-        .execute()
-    )
+    supabase.table("entries").delete().gte("ts", start).lt("ts", end).execute()
     return True
