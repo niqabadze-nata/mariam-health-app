@@ -15,7 +15,18 @@
 </ul>
 {% endif %}
 
+<!-- RESET TODAY button -->
 <div class="link-row">
-    <a href="{{ url_for('index') }}"><button class="btn-secondary">Back</button></a>
+    <form action="{{ url_for('reset_today') }}" method="post" style="display:inline;">
+        <button class="btn-danger">Reset Today</button>
+    </form>
 </div>
+
+<!-- BACK BUTTON -->
+<div class="link-row">
+    <a href="{{ url_for('index') }}">
+        <button class="btn-secondary">Back</button>
+    </a>
+</div>
+
 {% endblock %}
