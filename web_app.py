@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from flask import Flask, render_template, request, redirect, url_for, flash
 
 from controllers import (
@@ -10,7 +9,6 @@ from controllers import (
     set_sugar_limit,
 )
 from models import Entry
-
 
 app = Flask(__name__)
 app.secret_key = "mariam-secret-key"   # needed for flash messages
@@ -23,26 +21,66 @@ def _to_float(value: str) -> float:
     return float(value)
 
 
+def _parse_time(time_str: str) -> datetime | None:
+    """
+    Converts the user input (HH:MM) into a datetime for today.
+    Returns None if empty.
+    Raises ValueError if format invalid.
+    """
+    time_str = time_str.strip()
+    if not time_str:
+        return None
+
+    try:
+        today = datetime.now()
+        t = datetime.strptime(time_str, "%H:%M").time()
+        return datetime(
+            today.year,
+            today.month,
+            today.day,
+            t.hour,
+            t.minute,
+            today.second,
+            today.microsecond
+        )
+    except Exception:
+        raise ValueError("Time must be in HH:MM format (example: 14:30)")
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     """Main page: add entry + show today's totals."""
     if request.method == "POST":
         try:
+            # 1. Validate food
             food = request.form.get("food", "").strip()
             if not food:
                 raise ValueError("Food name is required")
 
+            # 2. Numbers
             sugar = _to_float(request.form.get("sugar", "0"))
             water = _to_float(request.form.get("water", "0"))
             insulin = _to_float(request.form.get("insulin", "0"))
 
+            # 3. Time eaten (NEW feature)
+            time_eaten_str = request.form.get("time_eaten", "")
+            time_eaten = _parse_time(time_eaten_str)
+
+            # If user did not enter time → use current time
+            if time_eaten is None:
+                time_eaten = datetime.now()
+
+            # 4. Create entry object
             entry = Entry(
                 ts=datetime.now(),
                 food=food,
                 sugar_g=sugar,
                 water_cups=water,
                 insulin_units=insulin,
+                time_eaten=time_eaten,
             )
+
+            # 5. Save
             add_entry(entry)
             flash("Entry saved successfully!")
             return redirect(url_for("index"))
@@ -52,7 +90,6 @@ def index():
 
     totals = get_today_totals()
     limit = get_sugar_limit()
-
     return render_template("index.html", totals=totals, limit=limit)
 
 
@@ -84,5 +121,4 @@ def settings():
 
 
 if __name__ == "__main__":
-    # debug=True auto reloads when you change code
     app.run(debug=True)
