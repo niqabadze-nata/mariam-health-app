@@ -31,18 +31,11 @@
     </ul>
 </div>
 
-<!-- ========================= -->
-<!-- 1. WARNING MESSAGE BLOCK  -->
-<!-- ========================= -->
-
 {% if totals.sugar_g > limit %}
 <div id="sugar-warning" class="warning-box blink">
     ⚠️ Warning: Sugar limit exceeded!
 </div>
 
-<!-- ========================= -->
-<!-- 2. POPUP MODAL            -->
-<!-- ========================= -->
 <div id="warning-modal" class="modal">
     <div class="modal-content">
         <h2>⚠️ Sugar Limit Exceeded</h2>
@@ -51,90 +44,28 @@
     </div>
 </div>
 
-<!-- ========================= -->
-<!-- 3. SOUND ALERT            -->
-<!-- ========================= -->
 <audio id="alert-sound">
     <source src="/static/alert.mp3" type="audio/mpeg">
 </audio>
-
 {% endif %}
 
 <div class="link-row">
     <a href="{{ url_for('entries') }}"><button class="btn-secondary">Today's entries</button></a>
     <a href="{{ url_for('settings') }}"><button class="btn-secondary">Settings</button></a>
-
-    <!-- Reset Today button -->
-    <button class="btn-danger" id="reset-btn">Reset Today</button>
 </div>
 
-<!-- Modal for confirming reset -->
-<div id="reset-modal" class="modal">
-    <div class="modal-content">
-        <h2>⚠️ Reset all today's data?</h2>
-        <p>This will permanently delete today's entries.</p>
-
-        <form method="post" action="{{ url_for('reset_today') }}">
-            <button class="btn-primary" type="submit">Yes, reset</button>
-        </form>
-
-        <button class="btn-secondary" id="cancel-reset">Cancel</button>
-    </div>
-</div>
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-    const resetBtn = document.getElementById("reset-btn");
-    const resetModal = document.getElementById("reset-modal");
-    const cancelReset = document.getElementById("cancel-reset");
-
-    resetBtn.addEventListener("click", () => {
-        resetModal.style.display = "flex";
-    });
-
-    cancelReset.addEventListener("click", () => {
-        resetModal.style.display = "none";
-    });
-});
-</script>
-
-<style>
-.btn-danger {
-    background: #ff4d4d;
-    border: none;
-    padding: 10px 15px;
-    color: white;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-}
-.btn-danger:hover {
-    background: #e60000;
-}
-</style>
-
-
-
-<!-- ========================= -->
-<!-- 4. JAVASCRIPT LOGIC       -->
-<!-- ========================= -->
 <script>
     document.addEventListener("DOMContentLoaded", function () {
 
-        // If warning exists in HTML
         const warningBox = document.getElementById("sugar-warning");
         const modal = document.getElementById("warning-modal");
         const closeBtn = document.getElementById("close-modal");
         const alertSound = document.getElementById("alert-sound");
 
         if (warningBox) {
-            // Play alert sound
             alertSound.play().catch(() => {});
-
-            // Show modal
             modal.style.display = "flex";
 
-            // Close modal button
             closeBtn.addEventListener("click", () => {
                 modal.style.display = "none";
             });
@@ -142,12 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 </script>
 
-
-<!-- ========================= -->
-<!-- 5. CSS STYLING            -->
-<!-- ========================= -->
 <style>
-
 .warning-box {
     background: #ffcccc;
     padding: 15px;
@@ -193,7 +119,6 @@ document.addEventListener("DOMContentLoaded", () => {
 .modal-content h2 {
     color: #b30000;
 }
-
 </style>
 
 {% endblock %}
