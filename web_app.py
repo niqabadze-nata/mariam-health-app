@@ -7,6 +7,7 @@ from controllers import (
     get_today_entries,
     get_sugar_limit,
     set_sugar_limit,
+    delete_all_today_entries, 
 )
 from models import Entry
 
