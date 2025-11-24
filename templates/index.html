@@ -63,7 +63,56 @@
 <div class="link-row">
     <a href="{{ url_for('entries') }}"><button class="btn-secondary">Today's entries</button></a>
     <a href="{{ url_for('settings') }}"><button class="btn-secondary">Settings</button></a>
+
+    <!-- Reset Today button -->
+    <button class="btn-danger" id="reset-btn">Reset Today</button>
 </div>
+
+<!-- Modal for confirming reset -->
+<div id="reset-modal" class="modal">
+    <div class="modal-content">
+        <h2>⚠️ Reset all today's data?</h2>
+        <p>This will permanently delete today's entries.</p>
+
+        <form method="post" action="{{ url_for('reset_today') }}">
+            <button class="btn-primary" type="submit">Yes, reset</button>
+        </form>
+
+        <button class="btn-secondary" id="cancel-reset">Cancel</button>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const resetBtn = document.getElementById("reset-btn");
+    const resetModal = document.getElementById("reset-modal");
+    const cancelReset = document.getElementById("cancel-reset");
+
+    resetBtn.addEventListener("click", () => {
+        resetModal.style.display = "flex";
+    });
+
+    cancelReset.addEventListener("click", () => {
+        resetModal.style.display = "none";
+    });
+});
+</script>
+
+<style>
+.btn-danger {
+    background: #ff4d4d;
+    border: none;
+    padding: 10px 15px;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.btn-danger:hover {
+    background: #e60000;
+}
+</style>
+
 
 
 <!-- ========================= -->
