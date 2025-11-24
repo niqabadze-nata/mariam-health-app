@@ -7,7 +7,7 @@ from controllers import (
     get_today_entries,
     get_sugar_limit,
     set_sugar_limit,
-    delete_all_today_entries, 
+    delete_all_today_entries,
 )
 from models import Entry
 
@@ -26,7 +26,7 @@ def _parse_time(time_str: str) -> datetime | None:
     """
     Converts the user input (HH:MM) into a datetime for today.
     Returns None if empty.
-    Raises ValueError if format invalid.
+    Raises ValueError if invalid.
     """
     time_str = time_str.strip()
     if not time_str:
@@ -53,25 +53,24 @@ def index():
     """Main page: add entry + show today's totals."""
     if request.method == "POST":
         try:
-            # 1. Validate food
+            # Validate food
             food = request.form.get("food", "").strip()
             if not food:
                 raise ValueError("Food name is required")
 
-            # 2. Numbers
+            # Numeric values
             sugar = _to_float(request.form.get("sugar", "0"))
             water = _to_float(request.form.get("water", "0"))
             insulin = _to_float(request.form.get("insulin", "0"))
 
-            # 3. Time eaten (NEW feature)
+            # Time eaten (new)
             time_eaten_str = request.form.get("time_eaten", "")
             time_eaten = _parse_time(time_eaten_str)
 
-            # If user did not enter time → use current time
             if time_eaten is None:
                 time_eaten = datetime.now()
 
-            # 4. Create entry object
+            # Create entry object
             entry = Entry(
                 ts=datetime.now(),
                 food=food,
@@ -81,7 +80,7 @@ def index():
                 time_eaten=time_eaten,
             )
 
-            # 5. Save
+            # Save
             add_entry(entry)
             flash("Entry saved successfully!")
             return redirect(url_for("index"))
@@ -92,6 +91,9 @@ def index():
     totals = get_today_totals()
     limit = get_sugar_limit()
     return render_template("index.html", totals=totals, limit=limit)
+
+
+# ✅ KEEP ONLY THIS ONE RESET ROUTE
 @app.route("/reset_today", methods=["POST"])
 def reset_today():
     delete_all_today_entries()
@@ -125,12 +127,6 @@ def settings():
     current = get_sugar_limit()
     return render_template("settings.html", limit=current)
 
-@app.route("/reset_today", methods=["POST"])
-def reset_today():
-    from controllers import delete_all_today_entries
-    delete_all_today_entries()
-    flash("Today's entries have been reset.")
-    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     app.run(debug=True)
