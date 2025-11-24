@@ -91,6 +91,11 @@ def index():
     totals = get_today_totals()
     limit = get_sugar_limit()
     return render_template("index.html", totals=totals, limit=limit)
+@app.route("/reset_today", methods=["POST"])
+def reset_today():
+    delete_all_today_entries()
+    flash("All today's entries have been deleted.")
+    return redirect(url_for("entries"))
 
 
 @app.route("/entries")
