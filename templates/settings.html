@@ -5,6 +5,9 @@
 <form method="post">
     <label>Daily sugar limit (g)</label>
     <input type="number" step="0.1" name="limit" value="{{ limit }}">
+<label>Insulin effect per unit (g)</label>
+<input type="number" step="0.1" name="effect_per_unit" value="{{ effect }}" placeholder="0">
+<small class="hint">Project setting: how many grams to subtract per 1 unit insulin.</small>
 
     <button class="btn-primary" type="submit">Save</button>
 </form>
