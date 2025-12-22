@@ -95,6 +95,7 @@ def index():
                 water_cups=water,
                 insulin_units=insulin,
                 time_eaten=time_eaten,
+                 adjusted_sugar_g=adjusted_sugar,
             )
 
             # Save
