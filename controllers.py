@@ -113,8 +113,6 @@ def get_insulin_effect_per_unit():
     val = (row or {}).get("insulin_effect_per_unit")
     return float(val) if val is not None else 0.0
 
-from datetime import datetime, date, timedelta
-
 def _range_window(days: int):
     """
     Returns start/end ISO timestamps for a range ending today.
@@ -151,7 +149,11 @@ def get_daily_totals(days: int):
             continue
         if day not in buckets:
             buckets[day] = {"sugar_g": 0.0, "water_cups": 0.0, "insulin_units": 0.0}
-        buckets[day]["sugar_g"] += float(r.get("sugar_g", 0) or 0)
+        s = r.get("adjusted_sugar_g")
+if s is None:
+    s = r.get("sugar_g")
+buckets[day]["sugar_g"] += float(s or 0)
+
         buckets[day]["water_cups"] += float(r.get("water_cups", 0) or 0)
         buckets[day]["insulin_units"] += float(r.get("insulin_units", 0) or 0)
 
