@@ -9,6 +9,7 @@ from controllers import (
     set_sugar_limit,
     delete_all_today_entries,
     get_daily_totals,
+get_insulin_effect_per_unit, 
 )
 from models import Entry
 
@@ -99,6 +100,9 @@ def index():
             # Save
             add_entry(entry)
             flash("Entry saved successfully!")
+            effect = get_insulin_effect_per_unit()
+adjusted_sugar = max(0.0, sugar - (insulin * effect))
+
             return redirect(url_for("index"))
 
         except ValueError as e:
