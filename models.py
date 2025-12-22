@@ -6,7 +6,7 @@ class Entry:
     ts: datetime
     food: str
     sugar_g: float
-    water_cups: float
+    water_liter: float
     insulin_units: float
     time_eaten: datetime | None = None
     adjusted_sugar_g: float = 0.0
@@ -17,7 +17,7 @@ class Entry:
             self.ts.isoformat(),
             self.food,
             self.sugar_g,
-            self.water_cups,
+            self.water_liter,
             self.insulin_units,
             self.time_eaten.isoformat() if self.time_eaten else None,
         )
