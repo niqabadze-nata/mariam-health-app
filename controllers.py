@@ -95,3 +95,53 @@ def delete_all_today_entries():
     start, end = _today_window()
     supabase.table("entries").delete().gte("ts", start).lt("ts", end).execute()
     return True
+
+
+
+from datetime import datetime, date, timedelta
+
+def _range_window(days: int):
+    """
+    Returns start/end ISO timestamps for a range ending today.
+    Example: days=7 -> last 7 days including today.
+    """
+    end_date = date.today() + timedelta(days=1)  # exclusive end
+    start_date = end_date - timedelta(days=days)
+    start = datetime(start_date.year, start_date.month, start_date.day)
+    end = datetime(end_date.year, end_date.month, end_date.day)
+    return start.isoformat(), end.isoformat()
+
+
+def get_daily_totals(days: int):
+    """
+    Returns daily totals for the last N days (including today),
+    grouped by date: [{"day":"2025-12-22","sugar_g":..., "water_cups":..., "insulin_units":...}, ...]
+    """
+    start, end = _range_window(days)
+
+    resp = (
+        supabase.table("entries")
+        .select("*")
+        .gte("ts", start)
+        .lt("ts", end)
+        .execute()
+    )
+    rows = resp.data or []
+
+    # group sums by YYYY-MM-DD
+    buckets = {}
+    for r in rows:
+        day = (r["ts"] or "")[:10]  # "YYYY-MM-DD"
+        if not day:
+            continue
+        if day not in buckets:
+            buckets[day] = {"sugar_g": 0.0, "water_cups": 0.0, "insulin_units": 0.0}
+        buckets[day]["sugar_g"] += float(r.get("sugar_g", 0) or 0)
+        buckets[day]["water_cups"] += float(r.get("water_cups", 0) or 0)
+        buckets[day]["insulin_units"] += float(r.get("insulin_units", 0) or 0)
+
+    # return sorted list
+    out = []
+    for day in sorted(buckets.keys()):
+        out.append({"day": day, **buckets[day]})
+    return out
