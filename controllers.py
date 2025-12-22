@@ -13,7 +13,7 @@ def add_entry(entry: Entry) -> None:
         "ts": entry.ts.isoformat(),
         "food": entry.food,
         "sugar_g": float(entry.sugar_g or 0),
-        "water_liter": float(entry.water_liter or 0),
+        "water_litre": float(entry.water_litre or 0),
         "insulin_units": float(entry.insulin_units or 0),
         "adjusted_sugar_g": float(entry.adjusted_sugar_g or 0),
     }
@@ -75,12 +75,12 @@ def get_today_totals():
             sugar_val = r.get("sugar_g", 0)
 
         total_sugar += float(sugar_val or 0)
-        total_water += float(r.get("water_liter", 0) or 0)
+        total_water += float(r.get("water_litre", 0) or 0)
         total_insulin += float(r.get("insulin_units", 0) or 0)
 
     return {
         "sugar_g": total_sugar,
-        "water_liter": total_water,
+        "water_litre": total_water,
         "insulin_units": total_insulin,
     }
 
@@ -165,7 +165,7 @@ def get_daily_totals(days: int):
     Returns daily totals for the last N days (including today),
     grouped by date:
     [
-      {"day":"2025-12-22","sugar_g":..., "water_liter":..., "insulin_units":...},
+      {"day":"2025-12-22","sugar_g":..., "water_litre":..., "insulin_units":...},
       ...
     ]
     """
@@ -189,14 +189,14 @@ def get_daily_totals(days: int):
             continue
 
         if day not in buckets:
-            buckets[day] = {"sugar_g": 0.0, "water_liter": 0.0, "insulin_units": 0.0}
+            buckets[day] = {"sugar_g": 0.0, "water_litre": 0.0, "insulin_units": 0.0}
 
         sugar_val = r.get("adjusted_sugar_g")
         if sugar_val is None:
             sugar_val = r.get("sugar_g", 0)
 
         buckets[day]["sugar_g"] += float(sugar_val or 0)
-        buckets[day]["water_liter"] += float(r.get("water_liter", 0) or 0)
+        buckets[day]["water_litre"] += float(r.get("water_litre", 0) or 0)
         buckets[day]["insulin_units"] += float(r.get("insulin_units", 0) or 0)
 
     out = []
