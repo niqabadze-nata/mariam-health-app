@@ -97,6 +97,18 @@ def delete_all_today_entries():
     return True
 
 
+def get_insulin_effect_per_unit():
+    """How many grams of sugar to subtract per 1 unit insulin (project setting)."""
+    resp = (
+        supabase.table("settings")
+        .select("insulin_effect_per_unit")
+        .eq("id", 1)
+        .maybe_single()
+        .execute()
+    )
+    row = resp.data
+    val = (row or {}).get("insulin_effect_per_unit")
+    return float(val) if val is not None else 0.0
 
 from datetime import datetime, date, timedelta
 
