@@ -51,6 +51,9 @@
 
 <div class="link-row">
     <a href="{{ url_for('entries') }}"><button class="btn-secondary">Today's entries</button></a>
+    <a href="{{ url_for('history', period='week') }}">
+  <button class="btn-secondary">History</button>
+</a>
     <a href="{{ url_for('settings') }}"><button class="btn-secondary">Settings</button></a>
 </div>
 
