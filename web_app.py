@@ -9,16 +9,16 @@ from controllers import (
     set_sugar_limit,
     delete_all_today_entries,
     get_daily_totals,
-get_insulin_effect_per_unit, 
+    get_insulin_effect_per_unit,
 )
 from models import Entry
 
 app = Flask(__name__)
-app.secret_key = "mariam-secret-key"   # needed for flash messages
+app.secret_key = "mariam-secret-key"  # needed for flash messages
 
 
 def _to_float(value: str) -> float:
-    value = value.strip()
+    value = (value or "").strip()
     if value == "":
         return 0.0
     return float(value)
@@ -30,7 +30,7 @@ def _parse_time(time_str: str) -> datetime | None:
     Returns None if empty.
     Raises ValueError if invalid.
     """
-    time_str = time_str.strip()
+    time_str = (time_str or "").strip()
     if not time_str:
         return None
 
@@ -44,10 +44,11 @@ def _parse_time(time_str: str) -> datetime | None:
             t.hour,
             t.minute,
             today.second,
-            today.microsecond
+            today.microsecond,
         )
     except Exception:
         raise ValueError("Time must be in HH:MM format (example: 14:30)")
+
 
 @app.route("/history")
 def history():
@@ -65,6 +66,7 @@ def history():
         daily=daily,
     )
 
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     """Main page: add entry + show today's totals."""
@@ -80,12 +82,13 @@ def index():
             water = _to_float(request.form.get("water", "0"))
             insulin = _to_float(request.form.get("insulin", "0"))
 
-            # Time eaten (new)
+            # Time eaten
             time_eaten_str = request.form.get("time_eaten", "")
-            time_eaten = _parse_time(time_eaten_str)
+            time_eaten = _parse_time(time_eaten_str) or datetime.now()
 
-            if time_eaten is None:
-                time_eaten = datetime.now()
+            # Calculate adjusted sugar (project setting)
+            effect = get_insulin_effect_per_unit()
+            adjusted_sugar = max(0.0, sugar - (insulin * effect))
 
             # Create entry object
             entry = Entry(
@@ -95,15 +98,12 @@ def index():
                 water_cups=water,
                 insulin_units=insulin,
                 time_eaten=time_eaten,
-                 adjusted_sugar_g=adjusted_sugar,
+                adjusted_sugar_g=adjusted_sugar,
             )
 
             # Save
             add_entry(entry)
             flash("Entry saved successfully!")
-            effect = get_insulin_effect_per_unit()
-adjusted_sugar = max(0.0, sugar - (insulin * effect))
-
             return redirect(url_for("index"))
 
         except ValueError as e:
@@ -114,9 +114,9 @@ adjusted_sugar = max(0.0, sugar - (insulin * effect))
     return render_template("index.html", totals=totals, limit=limit)
 
 
-# ✅ KEEP ONLY THIS ONE RESET ROUTE
 @app.route("/reset_today", methods=["POST"])
 def reset_today():
+    """Delete all today's entries."""
     delete_all_today_entries()
     flash("All today's entries have been deleted.")
     return redirect(url_for("entries"))
