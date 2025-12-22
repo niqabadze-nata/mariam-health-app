@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-
 @dataclass
 class Entry:
     ts: datetime
@@ -10,6 +9,8 @@ class Entry:
     water_cups: float
     insulin_units: float
     time_eaten: datetime | None = None
+    adjusted_sugar_g: float = 0.0
+
 
     def as_row(self):
         return (
