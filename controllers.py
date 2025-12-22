@@ -38,7 +38,8 @@ def get_today_totals():
     )
     rows = resp.data or []
 
-    total_sugar = sum(r.get("sugar_g", 0) for r in rows)
+    total_sugar = sum(float(r.get("adjusted_sugar_g") or r.get("sugar_g") or 0) for r in rows)
+
     total_water = sum(r.get("water_cups", 0) for r in rows)
     total_insulin = sum(r.get("insulin_units", 0) for r in rows)
 
