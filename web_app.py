@@ -8,6 +8,7 @@ from controllers import (
     get_sugar_limit,
     set_sugar_limit,
     delete_all_today_entries,
+    get_daily_totals,
 )
 from models import Entry
 
@@ -47,6 +48,21 @@ def _parse_time(time_str: str) -> datetime | None:
     except Exception:
         raise ValueError("Time must be in HH:MM format (example: 14:30)")
 
+@app.route("/history")
+def history():
+    # week/month/year selector
+    period = request.args.get("period", "week").lower()
+    days = {"week": 7, "month": 30, "year": 365}.get(period, 7)
+
+    limit = get_sugar_limit()
+    daily = get_daily_totals(days)
+
+    return render_template(
+        "history.html",
+        period=period,
+        limit=limit,
+        daily=daily,
+    )
 
 @app.route("/", methods=["GET", "POST"])
 def index():
