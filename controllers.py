@@ -4,16 +4,18 @@ from models import Entry
 
 
 def add_entry(entry: Entry):
-    """Insert one entry into Supabase."""
     data = {
         "ts": entry.ts.isoformat(),
         "food": entry.food,
         "sugar_g": entry.sugar_g,
         "water_cups": entry.water_cups,
         "insulin_units": entry.insulin_units,
-        "time_eaten": entry.time_eaten.isoformat() if entry.time_eaten else None,
+        "adjusted_sugar_g": entry.adjusted_sugar_g,
     }
+    if getattr(entry, "time_eaten", None):
+        data["time_eaten"] = entry.time_eaten.isoformat()
     supabase.table("entries").insert(data).execute()
+
 
 
 def _today_window():
