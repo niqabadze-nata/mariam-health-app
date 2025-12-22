@@ -1,6 +1,8 @@
+# Import tools for handling dates and the Flask web framework
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash
 
+# Import specific functions from your "controllers" file to handle data
 from controllers import (
     add_entry,
     get_today_totals,
@@ -11,32 +13,34 @@ from controllers import (
     get_daily_totals,
     get_insulin_effect_per_unit,
 )
+# Import the Entry data structure from your "models" file
 from models import Entry
 
+# Initialize the web application
 app = Flask(__name__)
-app.secret_key = "mariam-secret-key"  # needed for flash messages
+# Secret key is like a password used to secure "flash" messages (pop-up alerts)
+app.secret_key = "mariam-secret-key"  
 
 
 def _to_float(value: str) -> float:
+    """Safely converts text input from a form into a decimal number."""
     value = (value or "").strip()
     if value == "":
-        return 0.0
+        return 0.0 # If the user left it blank, treat it as zero
     return float(value)
 
 
 def _parse_time(time_str: str) -> datetime | None:
-    """
-    Converts the user input (HH:MM) into a datetime for today.
-    Returns None if empty.
-    Raises ValueError if invalid.
-    """
+    """Takes a time like '14:30' and turns it into a full date/time object for today."""
     time_str = (time_str or "").strip()
     if not time_str:
         return None
 
     try:
         today = datetime.now()
+        # Turn the string "HH:MM" into a time object
         t = datetime.strptime(time_str, "%H:%M").time()
+        # Combine today's date with the time the user typed in
         return datetime(
             today.year,
             today.month,
@@ -47,18 +51,22 @@ def _parse_time(time_str: str) -> datetime | None:
             today.microsecond,
         )
     except Exception:
+        # If the user typed the time wrong, show an error message
         raise ValueError("Time must be in HH:MM format (example: 14:30)")
 
 
 @app.route("/history")
 def history():
-    # week/month/year selector
+    """The page that shows past sugar/water intake over time."""
+    # Look at the URL to see if the user wants to see a 'week', 'month', or 'year'
     period = request.args.get("period", "week").lower()
+    # Convert those words into actual numbers of days
     days = {"week": 7, "month": 30, "year": 365}.get(period, 7)
 
-    limit = get_sugar_limit()
-    daily = get_daily_totals(days)
+    limit = get_sugar_limit() # Get the user's set sugar goal
+    daily = get_daily_totals(days) # Pull the data for those days
 
+    # Send all this info to the "history.html" webpage template
     return render_template(
         "history.html",
         period=period,
@@ -69,28 +77,29 @@ def history():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    """Main page: add entry + show today's totals."""
+    """The main home page where you can add new food/drink entries."""
+    # If the user just clicked "Submit" on the form (POST method)
     if request.method == "POST":
         try:
-            # Validate food
+            # 1. Grab the food name and make sure it's not empty
             food = request.form.get("food", "").strip()
             if not food:
                 raise ValueError("Food name is required")
 
-            # Numeric values
+            # 2. Get the numbers for sugar, water, and insulin
             sugar = _to_float(request.form.get("sugar", "0"))
             water = _to_float(request.form.get("water", "0"))
             insulin = _to_float(request.form.get("insulin", "0"))
 
-            # Time eaten
+            # 3. Handle the time: use what they typed or use 'right now'
             time_eaten_str = request.form.get("time_eaten", "")
             time_eaten = _parse_time(time_eaten_str) or datetime.now()
 
-            # Calculate adjusted sugar (project setting)
+            # 4. Calculate 'adjusted sugar' by subtracting the insulin's effect
             effect = get_insulin_effect_per_unit()
             adjusted_sugar = max(0.0, sugar - (insulin * effect))
 
-            # Create entry object
+            # 5. Pack all this info into a single 'Entry' object
             entry = Entry(
                 ts=datetime.now(),
                 food=food,
@@ -101,14 +110,16 @@ def index():
                 adjusted_sugar_g=adjusted_sugar,
             )
 
-            # Save
+            # 6. Save the entry to the database and tell the user it worked
             add_entry(entry)
             flash("Entry saved successfully!")
             return redirect(url_for("index"))
 
         except ValueError as e:
+            # If any of the steps above failed, show the error message
             flash(str(e))
 
+    # If the user is just visiting the page (GET method), show today's totals
     totals = get_today_totals()
     limit = get_sugar_limit()
     return render_template("index.html", totals=totals, limit=limit)
@@ -116,7 +127,7 @@ def index():
 
 @app.route("/reset_today", methods=["POST"])
 def reset_today():
-    """Delete all today's entries."""
+    """Wipes out all of today's logs to start over."""
     delete_all_today_entries()
     flash("All today's entries have been deleted.")
     return redirect(url_for("entries"))
@@ -124,14 +135,14 @@ def reset_today():
 
 @app.route("/entries")
 def entries():
-    """List all entries for today."""
+    """A simple page listing every individual thing logged today."""
     rows = get_today_entries()
     return render_template("entries.html", entries=rows)
 
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
-    """Change daily sugar limit."""
+    """The page where you can update your daily sugar limit goal."""
     if request.method == "POST":
         try:
             new_limit = float(request.form.get("limit", "0"))
@@ -149,5 +160,6 @@ def settings():
     return render_template("settings.html", limit=current)
 
 
+# Start the app in "debug mode" (makes it easier to find errors during development)
 if __name__ == "__main__":
     app.run(debug=True)
