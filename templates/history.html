@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>History</h2>
+
+<div class="pill-row">
+  <a class="pill {% if period=='week' %}active{% endif %}" href="{{ url_for('history', period='week') }}">Week</a>
+  <a class="pill {% if period=='month' %}active{% endif %}" href="{{ url_for('history', period='month') }}">Month</a>
+  <a class="pill {% if period=='year' %}active{% endif %}" href="{{ url_for('history', period='year') }}">Year</a>
+</div>
+
+<div class="card">
+  <h3>Sugar over time</h3>
+  <canvas id="sugarChart"></canvas>
+  <p class="hint">Days above the limit ({{ limit }} g) are highlighted.</p>
+</div>
+
+<div class="card">
+  <h3>Daily totals</h3>
+
+  {% if not daily %}
+    <p>No data yet in this period.</p>
+  {% else %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Sugar (g)</th>
+          <th>Water (cups)</th>
+          <th>Insulin (u)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in daily %}
+          {% set exceeded = (d.sugar_g > limit) %}
+          <tr class="{% if exceeded %}row-danger{% endif %}">
+            <td>{{ d.day }}</td>
+            <td>{{ "%.1f"|format(d.sugar_g) }}</td>
+            <td>{{ "%.1f"|format(d.water_cups) }}</td>
+            <td>{{ "%.1f"|format(d.insulin_units) }}</td>
+            <td>{% if exceeded %}⚠️ High{% else %}✅ OK{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</div>
+
+<div class="link-row">
+  <a href="{{ url_for('index') }}"><button class="btn-secondary">Back</button></a>
+</div>
+
+<!-- Chart.js (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+  const daily = {{ daily|tojson }};
+  const limit = {{ limit|tojson }};
+
+  const labels = daily.map(d => d.day);
+  const sugar = daily.map(d => d.sugar_g);
+
+  // highlight points above limit
+  const pointColors = sugar.map(v => v > limit ? "#ff4d4d" : "#2d3a8c");
+  const pointRadius = sugar.map(v => v > limit ? 6 : 4);
+
+  const ctx = document.getElementById("sugarChart");
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Sugar (g)",
+        data: sugar,
+        tension: 0.25,
+        pointBackgroundColor: pointColors,
+        pointRadius: pointRadius
+      },
+      {
+        label: "Daily limit",
+        data: labels.map(() => limit),
+        borderDash: [6, 6],
+        pointRadius: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+</script>
+
+<style>
+  .pill-row {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0 18px;
+  }
+  .pill {
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #2d3a8c;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .pill.active {
+    background: #2d3a8c;
+    color: white;
+  }
+  .card {
+    background: #f7f8ff;
+    padding: 16px;
+    border-radius: 14px;
+    margin: 12px 0;
+  }
+  .hint {
+    opacity: 0.75;
+    margin-top: 8px;
+  }
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .table th, .table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    text-align: left;
+  }
+  .row-danger {
+    background: rgba(255, 77, 77, 0.10);
+  }
+</style>
+
+{% endblock %}
