@@ -78,7 +78,6 @@ def history():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    """The main home page where you can add new food/drink entries."""
     # If the user just clicked "Submit" on the form (POST method)
     if request.method == "POST":
         try:
