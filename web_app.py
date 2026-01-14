@@ -1,5 +1,6 @@
-# Import tools for handling dates and the Flask web framework
+# datetime is used for getting "today's date" and converting strings like "14:30" into time objects
 from datetime import datetime
+# Flask tools for routing, templates, user input, redirects, and messages
 from flask import Flask, render_template, request, redirect, url_for, flash
 
 # Import specific functions from "controllers" file to handle data
