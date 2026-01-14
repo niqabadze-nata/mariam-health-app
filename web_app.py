@@ -2,7 +2,7 @@
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash
 
-# Import specific functions from your "controllers" file to handle data
+# Import specific functions from "controllers" file to handle data
 from controllers import (
     add_entry,
     get_today_totals,
