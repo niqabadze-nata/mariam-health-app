@@ -1,14 +1,14 @@
 from datetime import datetime, date, timedelta
-
 from supabase_client import supabase
 from models import Entry
 
-
-# =========================
 # INSERT / CREATE
-# =========================
+"""
+    Add a new health log entry into the app: It stores one user action (food/sugar/water/insulin/time eaten) so the app can
+    calculates totals, shows today's list, and builds history charts.
+    """
+
 def add_entry(entry: Entry) -> None:
-    """Insert one entry into Supabase."""
     data = {
         "ts": entry.ts.isoformat(),
         "food": entry.food,
@@ -24,11 +24,11 @@ def add_entry(entry: Entry) -> None:
     supabase.table("entries").insert(data).execute()
 
 
-# =========================
 # DATE HELPERS
-# =========================
+"""Creates a time filter so the app can reliably fetch only today's records
+    from the database (used by totals, list, and delete functions).
+    """
 def _today_window():
-    """Return start/end ISO timestamps for today (local server time)."""
     d = date.today()
     start = datetime(d.year, d.month, d.day)
     end = start + timedelta(days=1)
@@ -37,8 +37,8 @@ def _today_window():
 
 def _range_window(days: int):
     """
-    Returns start/end ISO timestamps for a range ending today.
-    Example: days=7 -> last 7 days including today.
+    Creates a date range filter for history views (e.g., last 7 days),
+    so the app can compute daily totals for charts/progress tracking.
     """
     end_date = date.today() + timedelta(days=1)  # exclusive end
     start_date = end_date - timedelta(days=days)
@@ -48,11 +48,15 @@ def _range_window(days: int):
     return start.isoformat(), end.isoformat()
 
 
-# =========================
+
 # TODAY: TOTALS / LIST / DELETE
-# =========================
+
+"""
+    Produces the dashboard totals for today by fetching today's entries and
+    summing values. Uses adjusted_sugar_g if available (more accurate),
+    otherwise falls back to sugar_g.
+    """
 def get_today_totals():
-    """Calculate today's totals by summing values from Supabase."""
     start, end = _today_window()
 
     resp = (
@@ -69,7 +73,6 @@ def get_today_totals():
     total_insulin = 0.0
 
     for r in rows:
-        # prefer adjusted_sugar_g if present, fallback to sugar_g
         sugar_val = r.get("adjusted_sugar_g")
         if sugar_val is None:
             sugar_val = r.get("sugar_g", 0)
@@ -84,9 +87,12 @@ def get_today_totals():
         "insulin_units": total_insulin,
     }
 
-
+"""
+    Retrieve all entries made today (newest first).
+    Powers the “today list” UI so the user can see what they logged,
+    in reverse time order (most recent at the top).
+    """
 def get_today_entries():
-    """Return all entries for today (most recent first)."""
     start, end = _today_window()
 
     resp = (
@@ -99,9 +105,12 @@ def get_today_entries():
     )
     return resp.data or []
 
-
+ """
+    Delete the most recent entry from today.
+    Allows an “undo last log” feature. Returns False if there is nothing
+    to delete, otherwise deletes the newest entry and returns True.
+    """
 def delete_last_today_entry() -> bool:
-    """Delete the most recent entry for today."""
     entries = get_today_entries()
     if not entries:
         return False
@@ -110,19 +119,25 @@ def delete_last_today_entry() -> bool:
     supabase.table("entries").delete().eq("id", last_id).execute()
     return True
 
-
+ """
+    Delete every entry from today.
+    Provides a “clear today” feature (reset the day’s logs). Returns True
+    after running the delete query.
+    """
 def delete_all_today_entries() -> bool:
-    """Delete all today's entries."""
     start, end = _today_window()
     supabase.table("entries").delete().gte("ts", start).lt("ts", end).execute()
     return True
 
 
-# =========================
+
 # SETTINGS
-# =========================
+"""
+    Used for goal tracking (e.g., progress bar / warning when exceeding limit).
+    Defaults to 50.0 if the setting is missing.
+    """
 def get_sugar_limit() -> float:
-    """Return daily sugar limit from settings (row with id=1)."""
+   
     resp = (
         supabase.table("settings")
         .select("daily_sugar_limit")
@@ -136,15 +151,11 @@ def get_sugar_limit() -> float:
 
 
 def set_sugar_limit(value: float) -> None:
-    """Update daily sugar limit in settings."""
+    #Update daily sugar limit in settings.
     supabase.table("settings").update({"daily_sugar_limit": float(value)}).eq("id", 1).execute()
 
 
 def get_insulin_effect_per_unit() -> float:
-    """
-    How many grams of sugar to subtract per 1 unit insulin.
-    If missing, return 0.0.
-    """
     resp = (
         supabase.table("settings")
         .select("insulin_effect_per_unit")
@@ -157,18 +168,16 @@ def get_insulin_effect_per_unit() -> float:
     return float(val) if val is not None else 0.0
 
 
-# =========================
+
 # HISTORY (DAILY TOTALS)
-# =========================
+
+ """
+    Creates summary data for history screens and charts by grouping all entries
+    by date (YYYY-MM-DD) and summing sugar, water, and insulin for each day.
+    Uses adjusted_sugar_g when available for accuracy.
+    """
 def get_daily_totals(days: int):
-    """
-    Returns daily totals for the last N days (including today),
-    grouped by date:
-    [
-      {"day":"2025-12-22","sugar_g":..., "water_litre":..., "insulin_units":...},
-      ...
-    ]
-    """
+
     start, end = _range_window(days)
 
     resp = (
@@ -184,7 +193,7 @@ def get_daily_totals(days: int):
 
     for r in rows:
         ts = r.get("ts") or ""
-        day = ts[:10]  # YYYY-MM-DD
+        day = ts[:10] 
         if not day:
             continue
 
