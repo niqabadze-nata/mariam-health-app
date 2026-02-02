@@ -151,7 +151,7 @@ def get_sugar_limit() -> float:
         supabase.table("settings")
         .select("daily_sugar_limit")
         .eq("id", 1)
-        .single()
+        .maybe_single()  # <-- IMPORTANT: avoids crash if the row doesn't exist
         .execute()
     )
     row = resp.data
@@ -160,8 +160,13 @@ def get_sugar_limit() -> float:
 
 
 def set_sugar_limit(value: float) -> None:
-    """Update daily sugar limit in settings."""
-    supabase.table("settings").update({"daily_sugar_limit": float(value)}).eq("id", 1).execute()
+    """
+    Update daily sugar limit in settings.
+    Uses upsert so the row is created if it doesn't exist yet.
+    """
+    supabase.table("settings").upsert(
+        {"id": 1, "daily_sugar_limit": float(value)}
+    ).execute()
 
 
 def get_insulin_effect_per_unit() -> float:
@@ -179,6 +184,16 @@ def get_insulin_effect_per_unit() -> float:
     row = resp.data
     val = (row or {}).get("insulin_effect_per_unit")
     return float(val) if val is not None else 0.0
+
+
+def set_insulin_effect_per_unit(value: float) -> None:
+    """
+    Update insulin effectiveness in settings.
+    Uses upsert so the row is created if it doesn't exist yet.
+    """
+    supabase.table("settings").upsert(
+        {"id": 1, "insulin_effect_per_unit": float(value)}
+    ).execute()
 
 
 # =========================
