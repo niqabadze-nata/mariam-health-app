@@ -17,7 +17,7 @@ class Entry:
             self.ts.isoformat(),
             self.food,
             self.sugar_g,
-            self.water_liter,
+            self.water_litre,
             self.insulin_units,
             self.time_eaten.isoformat() if self.time_eaten else None,
         )
