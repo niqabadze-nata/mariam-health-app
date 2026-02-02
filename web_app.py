@@ -78,27 +78,23 @@ def history():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    # If the user just clicked "Submit" on the form (POST method)
+    # If the user just clicked "Submit" on the form
     if request.method == "POST":
         try:
             # 1. Grab the food name and make sure it's not empty
             food = request.form.get("food", "").strip()
             if not food:
                 raise ValueError("Food name is required")
-
             # 2. Get the numbers for sugar, water, and insulin
             sugar = _to_float(request.form.get("sugar", "0"))
             water = _to_float(request.form.get("water", "0"))
             insulin = _to_float(request.form.get("insulin", "0"))
-
             # 3. Handle the time: use what they typed or use 'right now'
             time_eaten_str = request.form.get("time_eaten", "")
             time_eaten = _parse_time(time_eaten_str) or datetime.now()
-
             # 4. Calculate 'adjusted sugar' by subtracting the insulin's effect
             effect = get_insulin_effect_per_unit()
             adjusted_sugar = max(0.0, sugar - (insulin * effect))
-
             # 5. Pack all this info into a single 'Entry' object
             entry = Entry(
                 ts=datetime.now(),
@@ -109,16 +105,12 @@ def index():
                 time_eaten=time_eaten,
                 adjusted_sugar_g=adjusted_sugar,
             )
-
             # 6. Save the entry to the database and tell the user it worked
             add_entry(entry)
             flash("Entry saved successfully!")
             return redirect(url_for("index"))
-
         except ValueError as e:
-            # If any of the steps above failed, show the error message
             flash(str(e))
-
     # If the user is just visiting the page (GET method), show today's totals
     totals = get_today_totals()
     limit = get_sugar_limit()
