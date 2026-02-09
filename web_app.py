@@ -12,7 +12,7 @@ from controllers import (
     get_daily_totals,
     get_insulin_effect_per_unit,
     delete_all_today_entries,
-    set_settings,   # ✅ use this
+    set_settings,  # ✅ use this
 )
 from models import Entry
 
@@ -50,6 +50,7 @@ def _validate_food(food: str) -> str:
     food = (food or "").strip()
     if not food:
         raise ValueError("Food name is required.")
+    # blocks "12345" but allows "cake 2"
     if not re.search(r"[A-Za-z]", food):
         raise ValueError("Food name cannot be only numbers.")
     return food
@@ -142,7 +143,7 @@ def settings():
             if new_effect < 0:
                 raise ValueError("Insulin effect per unit must be >= 0")
 
-            # ✅ save both together so NOT NULL never breaks
+            # ✅ save both together (prevents NOT NULL errors)
             set_settings(new_limit, new_effect)
 
             flash("Settings updated.")
