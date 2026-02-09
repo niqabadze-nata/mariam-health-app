@@ -25,9 +25,9 @@
 <div class="totals">
     <h3>Today</h3>
     <ul>
-        <li>Total sugar: {{ totals.sugar_g }} g (limit: {{ limit }} g)</li>
-        <li>Water: {{ totals.water_litre }} litre</li>
-        <li>Insulin: {{ totals.insulin_units }} units</li>
+        <li>Total sugar: {{ "%.1f"|format(totals["sugar_g"]) }}</li>
+        <li>Water: {{ "%.1f"|format(totals["water_litre"]) }}litre</li>
+        <li>Insulin: {{ "%.1f"|format(totals["insulin_units"]) }} units</li>
     </ul>
 </div>
 
