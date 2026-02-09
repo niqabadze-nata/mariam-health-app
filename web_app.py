@@ -125,9 +125,13 @@ def index():
         except ValueError as e:
             flash(str(e))
 
-    totals = get_today_totals()
-    limit = get_sugar_limit()
-    return render_template("index.html", totals=totals, limit=limit)
+  totals = get_today_totals()
+totals["sugar_g"] = round(totals["sugar_g"], 1)
+totals["water_litre"] = round(totals["water_litre"], 1)
+totals["insulin_units"] = round(totals["insulin_units"], 1)
+
+limit = round(get_sugar_limit(), 1)
+return render_template("index.html", totals=totals, limit=limit)
 
 
 @app.route("/reset_today", methods=["POST"])
