@@ -2,12 +2,10 @@ from datetime import datetime, date, timedelta
 from supabase_client import supabase
 from models import Entry
 
-# =========================
-# INSERT / CREATE
-# =========================
+
 def add_entry(entry: Entry) -> None:
     data = {
-        "ts": entry.ts.isoformat(),  # when saved
+        "ts": entry.ts.isoformat(),
         "food": entry.food,
         "sugar_g": float(entry.sugar_g or 0),
         "water_litre": float(entry.water_litre or 0),
@@ -21,9 +19,6 @@ def add_entry(entry: Entry) -> None:
     supabase.table("entries").insert(data).execute()
 
 
-# =========================
-# DATE HELPERS (based on manual time_eaten)
-# =========================
 def _today_window():
     d = date.today()
     start = datetime(d.year, d.month, d.day)
@@ -34,18 +29,13 @@ def _today_window():
 def _range_window(days: int):
     end_date = date.today() + timedelta(days=1)
     start_date = end_date - timedelta(days=days)
-
     start = datetime(start_date.year, start_date.month, start_date.day)
     end = datetime(end_date.year, end_date.month, end_date.day)
     return start.isoformat(), end.isoformat()
 
 
-# =========================
-# TODAY: TOTALS / LIST / DELETE
-# =========================
 def get_today_totals():
     start, end = _today_window()
-
     resp = (
         supabase.table("entries")
         .select("*")
@@ -55,10 +45,7 @@ def get_today_totals():
     )
     rows = resp.data or []
 
-    total_sugar = 0.0
-    total_water = 0.0
-    total_insulin = 0.0
-
+    total_sugar = total_water = total_insulin = 0.0
     for r in rows:
         sugar_val = r.get("adjusted_sugar_g")
         if sugar_val is None:
@@ -77,7 +64,6 @@ def get_today_totals():
 
 def get_today_entries():
     start, end = _today_window()
-
     resp = (
         supabase.table("entries")
         .select("*")
@@ -95,32 +81,16 @@ def delete_all_today_entries() -> bool:
     return True
 
 
-# =========================
-# SETTINGS
-# =========================
 def get_sugar_limit() -> float:
-    resp = (
-        supabase.table("settings")
-        .select("daily_sugar_limit")
-        .eq("id", 1)
-        .limit(1)
-        .execute()
-    )
+    resp = supabase.table("settings").select("daily_sugar_limit").eq("id", 1).limit(1).execute()
     rows = resp.data or []
     if not rows:
         return 50.0
-    val = rows[0].get("daily_sugar_limit")
-    return float(val) if val is not None else 50.0
+    return float(rows[0].get("daily_sugar_limit") or 50.0)
 
 
 def get_insulin_effect_per_unit() -> float:
-    resp = (
-        supabase.table("settings")
-        .select("insulin_effect_per_unit")
-        .eq("id", 1)
-        .limit(1)
-        .execute()
-    )
+    resp = supabase.table("settings").select("insulin_effect_per_unit").eq("id", 1).limit(1).execute()
     rows = resp.data or []
     if not rows:
         return 0.0
@@ -129,7 +99,7 @@ def get_insulin_effect_per_unit() -> float:
 
 
 def set_settings(daily_limit: float, effect_per_unit: float) -> None:
-    # IMPORTANT: always send BOTH columns so NOT NULL columns never become null
+    # Always write BOTH values so daily_sugar_limit never becomes null
     supabase.table("settings").upsert(
         {
             "id": 1,
@@ -139,12 +109,8 @@ def set_settings(daily_limit: float, effect_per_unit: float) -> None:
     ).execute()
 
 
-# =========================
-# HISTORY (DAILY TOTALS)
-# =========================
 def get_daily_totals(days: int):
     start, end = _range_window(days)
-
     resp = (
         supabase.table("entries")
         .select("*")
@@ -155,7 +121,6 @@ def get_daily_totals(days: int):
     rows = resp.data or []
 
     buckets = {}
-
     for r in rows:
         t = r.get("time_eaten") or ""
         day = t[:10]
@@ -173,14 +138,12 @@ def get_daily_totals(days: int):
         buckets[day]["water_litre"] += float(r.get("water_litre", 0) or 0)
         buckets[day]["insulin_units"] += float(r.get("insulin_units", 0) or 0)
 
-    out = []
-    for day in sorted(buckets.keys()):
-        out.append(
-            {
-                "day": day,
-                "sugar_g": round(buckets[day]["sugar_g"], 1),
-                "water_litre": round(buckets[day]["water_litre"], 1),
-                "insulin_units": round(buckets[day]["insulin_units"], 1),
-            }
-        )
-    return out
+    return [
+        {
+            "day": day,
+            "sugar_g": round(vals["sugar_g"], 1),
+            "water_litre": round(vals["water_litre"], 1),
+            "insulin_units": round(vals["insulin_units"], 1),
+        }
+        for day, vals in sorted(buckets.items())
+    ]
