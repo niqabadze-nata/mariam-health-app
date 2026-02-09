@@ -1,24 +1,45 @@
+import os
 import re
 from datetime import datetime
-import os
 from flask import Flask, render_template, request, redirect, url_for, flash
 from werkzeug.exceptions import HTTPException
 
-# ... your imports stay the same ...
+from controllers import (
+    add_entry,
+    get_today_totals,
+    get_today_entries,
+    get_sugar_limit,
+    get_daily_totals,
+    get_insulin_effect_per_unit,
+    delete_all_today_entries,
+    set_settings,   # ✅ use this
+)
+from models import Entry
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "mariam-secret-key")
+
+
+@app.errorhandler(Exception)
+def show_error(e):
+    app.logger.exception("Unhandled exception:")
+    if isinstance(e, HTTPException):
+        return e
+    if os.environ.get("RENDER"):
+        return "Internal error. Check Render logs.", 500
+    return f"Error: {e}", 500
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204
 
 
 def _to_float_field(value: str, field_name: str) -> float:
-    """
-    Converts a form value to float.
-    - Allows blank -> 0.0
-    - Allows comma decimals (2,5)
-    - Raises a nice error if invalid (e.g. 'abc')
-    """
     raw = (value or "").strip()
     if raw == "":
         return 0.0
-
-    raw = raw.replace(",", ".")  # allow 2,5
+    raw = raw.replace(",", ".")
     try:
         return float(raw)
     except ValueError:
@@ -26,48 +47,47 @@ def _to_float_field(value: str, field_name: str) -> float:
 
 
 def _validate_food(food: str) -> str:
-    """
-    Food must contain at least one letter.
-    So '123' is invalid, but 'cake 2' is fine.
-    """
     food = (food or "").strip()
     if not food:
         raise ValueError("Food name is required.")
-
     if not re.search(r"[A-Za-z]", food):
-        raise ValueError("Food name cannot be only numbers. Please type a real food name.")
-
+        raise ValueError("Food name cannot be only numbers.")
     return food
+
+
+def _parse_time(time_str: str) -> datetime | None:
+    time_str = (time_str or "").strip()
+    if not time_str:
+        return None
+    try:
+        today = datetime.now()
+        t = datetime.strptime(time_str, "%H:%M").time()
+        return datetime(today.year, today.month, today.day, t.hour, t.minute)
+    except Exception:
+        raise ValueError("Time must be in HH:MM format (example: 14:30)")
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    """Home page: form + today totals."""
     if request.method == "POST":
         try:
-            # 1) Food validation (reject numbers-only)
             food = _validate_food(request.form.get("food", ""))
 
-            # 2) Numbers (blank = 0, invalid = error message)
             sugar = _to_float_field(request.form.get("sugar", ""), "Sugar (g)")
             water = _to_float_field(request.form.get("water", ""), "Water (litre)")
             insulin = _to_float_field(request.form.get("insulin", ""), "Insulin (units)")
 
-            # Optional extra: prevent negative values
             if sugar < 0 or water < 0 or insulin < 0:
                 raise ValueError("Numbers cannot be negative.")
 
-            # 3) Time eaten (required)
-            time_eaten_str = request.form.get("time_eaten", "").strip()
+            time_eaten_str = (request.form.get("time_eaten", "") or "").strip()
             if not time_eaten_str:
                 raise ValueError("Please enter the time (HH:MM).")
             time_eaten = _parse_time(time_eaten_str)
 
-            # 4) Adjusted sugar
             effect = get_insulin_effect_per_unit()
             adjusted_sugar = max(0.0, sugar - (insulin * effect))
 
-            # 5) Create Entry object
             entry = Entry(
                 ts=datetime.now(),
                 food=food,
@@ -94,31 +114,25 @@ def index():
     return render_template("index.html", totals=totals, limit=limit)
 
 
+@app.route("/entries")
+def entries():
+    rows = get_today_entries()
+    return render_template("entries.html", entries=rows)
+
+
 @app.route("/reset_today", methods=["POST"])
 def reset_today():
-    """Wipes out all of today's logs to start over."""
     delete_all_today_entries()
     flash("All today's entries have been deleted.")
     return redirect(url_for("entries"))
 
 
-@app.route("/entries")
-def entries():
-    """A simple page listing every individual thing logged today."""
-    rows = get_today_entries()
-    return render_template("entries.html", entries=rows)
-
-
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
-    """Update daily sugar limit + insulin effect per unit."""
     if request.method == "POST":
         try:
-            # Accept both "2.5" and "2,5"
-            raw_limit = (request.form.get("limit", "0") or "").strip().replace(",", ".")
-            raw_effect = (
-                (request.form.get("effect_per_unit", "0") or "").strip().replace(",", ".")
-            )
+            raw_limit = (request.form.get("limit", "") or "").strip().replace(",", ".")
+            raw_effect = (request.form.get("effect_per_unit", "") or "").strip().replace(",", ".")
 
             new_limit = float(raw_limit)
             new_effect = float(raw_effect)
@@ -128,8 +142,8 @@ def settings():
             if new_effect < 0:
                 raise ValueError("Insulin effect per unit must be >= 0")
 
-            set_sugar_limit(new_limit)
-            set_insulin_effect_per_unit(new_effect)
+            # ✅ save both together so NOT NULL never breaks
+            set_settings(new_limit, new_effect)
 
             flash("Settings updated.")
             return redirect(url_for("settings"))
@@ -142,7 +156,16 @@ def settings():
     return render_template("settings.html", limit=current_limit, effect=current_effect)
 
 
-# Start the app locally (Gunicorn will run it on Render)
+@app.route("/history")
+def history():
+    period = request.args.get("period", "week").lower()
+    days = {"week": 7, "month": 30, "year": 365}.get(period, 7)
+
+    limit = get_sugar_limit()
+    daily = get_daily_totals(days)
+    return render_template("history.html", period=period, limit=limit, daily=daily)
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=True)
