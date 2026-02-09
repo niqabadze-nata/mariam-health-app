@@ -98,12 +98,12 @@ def index():
             water = _to_float(request.form.get("water", "0"))
             insulin = _to_float(request.form.get("insulin", "0"))
 
-            # 3) Time eaten
-           time_eaten_str = request.form.get("time_eaten", "").strip()
-if not time_eaten_str:
-    raise ValueError("Please enter the time (HH:MM).")
+                        # 3) Time eaten (required)
+            time_eaten_str = request.form.get("time_eaten", "").strip()
+            if not time_eaten_str:
+                raise ValueError("Please enter the time (HH:MM).")
 
-time_eaten = _parse_time(time_eaten_str)
+            time_eaten = _parse_time(time_eaten_str)
 
             # 4) Adjusted sugar
             effect = get_insulin_effect_per_unit()
