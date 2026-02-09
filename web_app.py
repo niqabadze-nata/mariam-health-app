@@ -1,92 +1,43 @@
-# datetime is used for getting "today's date" and converting strings like "14:30" into time objects
+import re
 from datetime import datetime
 import os
-
-# Flask tools for routing, templates, user input, redirects, and messages
 from flask import Flask, render_template, request, redirect, url_for, flash
 from werkzeug.exceptions import HTTPException
 
-# Import specific functions from "controllers" file to handle data
-from controllers import (
-    add_entry,
-    get_today_totals,
-    get_today_entries,
-    get_sugar_limit,
-    set_sugar_limit,
-    delete_all_today_entries,
-    get_daily_totals,
-    get_insulin_effect_per_unit,
-    set_insulin_effect_per_unit,
-)
-
-# Import the Entry data structure from your "models" file
-from models import Entry
-
-# Initialize the web application
-app = Flask(__name__)
-
-# Secret key is like a password used to secure "flash" messages (pop-up alerts)
-# (Better practice: store in env var, but this is fine for a school IA project)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "mariam-secret-key")
+# ... your imports stay the same ...
 
 
-@app.errorhandler(Exception)
-def show_error(e):
+def _to_float_field(value: str, field_name: str) -> float:
     """
-    If anything crashes, log the full traceback in Render logs.
-    Keep normal HTTP errors (like 404) as-is, so they don't become "Internal error".
+    Converts a form value to float.
+    - Allows blank -> 0.0
+    - Allows comma decimals (2,5)
+    - Raises a nice error if invalid (e.g. 'abc')
     """
-    app.logger.exception("Unhandled exception:")
-    if isinstance(e, HTTPException):
-        return e  # keep real 404/403 etc
-    if os.environ.get("RENDER"):
-        return "Internal error. Check Render logs.", 500
-    return f"Error: {e}", 500
+    raw = (value or "").strip()
+    if raw == "":
+        return 0.0
 
-
-@app.route("/favicon.ico")
-def favicon():
-    # Prevent favicon 404 being treated as an internal server error
-    return "", 204
-
-
-def _to_float(value: str) -> float:
-    """Safely converts text input from a form into a decimal number."""
-    value = (value or "").strip()
-    if value == "":
-        return 0.0  # If the user left it blank, treat it as zero
-    return float(value)
-
-
-def _parse_time(time_str: str) -> datetime | None:
-    """Takes a time like '14:30' and turns it into a full date/time object for today."""
-    time_str = (time_str or "").strip()
-    if not time_str:
-        return None
-
+    raw = raw.replace(",", ".")  # allow 2,5
     try:
-        today = datetime.now()
-        t = datetime.strptime(time_str, "%H:%M").time()
-        return datetime(today.year, today.month, today.day, t.hour, t.minute)
-    except Exception:
-        raise ValueError("Time must be in HH:MM format (example: 14:30)")
+        return float(raw)
+    except ValueError:
+        raise ValueError(f"{field_name} must be a number.")
 
 
-@app.route("/history")
-def history():
-    """The page that shows past sugar/water intake over time."""
-    period = request.args.get("period", "week").lower()
-    days = {"week": 7, "month": 30, "year": 365}.get(period, 7)
+def _validate_food(food: str) -> str:
+    """
+    Food must contain at least one letter.
+    So '123' is invalid, but 'cake 2' is fine.
+    """
+    food = (food or "").strip()
+    if not food:
+        raise ValueError("Food name is required.")
 
-    limit = get_sugar_limit()
-    daily = get_daily_totals(days)
+    if not re.search(r"[A-Za-z]", food):
+        raise ValueError("Food name cannot be only numbers. Please type a real food name.")
 
-    return render_template(
-        "history.html",
-        period=period,
-        limit=limit,
-        daily=daily,
-    )
+    return food
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -94,15 +45,17 @@ def index():
     """Home page: form + today totals."""
     if request.method == "POST":
         try:
-            # 1) Food is required
-            food = request.form.get("food", "").strip()
-            if not food:
-                raise ValueError("Food name is required")
+            # 1) Food validation (reject numbers-only)
+            food = _validate_food(request.form.get("food", ""))
 
-            # 2) Numbers (blank = 0)
-            sugar = _to_float(request.form.get("sugar", "0"))
-            water = _to_float(request.form.get("water", "0"))
-            insulin = _to_float(request.form.get("insulin", "0"))
+            # 2) Numbers (blank = 0, invalid = error message)
+            sugar = _to_float_field(request.form.get("sugar", ""), "Sugar (g)")
+            water = _to_float_field(request.form.get("water", ""), "Water (litre)")
+            insulin = _to_float_field(request.form.get("insulin", ""), "Insulin (units)")
+
+            # Optional extra: prevent negative values
+            if sugar < 0 or water < 0 or insulin < 0:
+                raise ValueError("Numbers cannot be negative.")
 
             # 3) Time eaten (required)
             time_eaten_str = request.form.get("time_eaten", "").strip()
@@ -114,7 +67,7 @@ def index():
             effect = get_insulin_effect_per_unit()
             adjusted_sugar = max(0.0, sugar - (insulin * effect))
 
-            # 5) Create Entry object (make sure models.py uses water_litre!)
+            # 5) Create Entry object
             entry = Entry(
                 ts=datetime.now(),
                 food=food,
@@ -125,7 +78,6 @@ def index():
                 adjusted_sugar_g=adjusted_sugar,
             )
 
-            # 6) Save to DB
             add_entry(entry)
             flash("Entry saved successfully!")
             return redirect(url_for("index"))
@@ -134,8 +86,6 @@ def index():
             flash(str(e))
 
     totals = get_today_totals()
-
-    # Extra safety: round in Python too (even though template formatting also rounds)
     totals["sugar_g"] = round(totals.get("sugar_g", 0.0) or 0.0, 1)
     totals["water_litre"] = round(totals.get("water_litre", 0.0) or 0.0, 1)
     totals["insulin_units"] = round(totals.get("insulin_units", 0.0) or 0.0, 1)
