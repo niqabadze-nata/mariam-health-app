@@ -8,7 +8,7 @@
 <ul>
     {% for e in entries %}
       <li>
-        <b>{{ e.ts[11:16] }}</b> • {{ e.food }} •
+        <b>{{ e.time_eaten[11:16] }}</b> • {{ e.food }} •
         {{ e.sugar_g }}g • {{ e.water_litre }} litre • {{ e.insulin_units }}u
       </li>
     {% endfor %}
