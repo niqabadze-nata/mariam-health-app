@@ -13,7 +13,7 @@ def add_entry(entry: Entry) -> None:
     calculate totals, show today's list, and build history charts.
     """
     data = {
-        "ts": entry.ts.isoformat(),
+        "ts": entry.ts.isoformat(),  # server timestamp (when saved)
         "food": entry.food,
         "sugar_g": float(entry.sugar_g or 0),
         "water_litre": float(entry.water_litre or 0),
@@ -21,6 +21,7 @@ def add_entry(entry: Entry) -> None:
         "adjusted_sugar_g": float(entry.adjusted_sugar_g or 0),
     }
 
+    # Save the manual time the user entered
     if getattr(entry, "time_eaten", None):
         data["time_eaten"] = entry.time_eaten.isoformat()
 
@@ -32,8 +33,8 @@ def add_entry(entry: Entry) -> None:
 # =========================
 def _today_window():
     """
-    Create a time filter so the app can reliably fetch only today's records
-    from the database (used by totals, list, and delete functions).
+    Create a time filter so the app can fetch only today's records.
+    IMPORTANT: this is based on the user's manual time (time_eaten), not ts.
     """
     d = date.today()
     start = datetime(d.year, d.month, d.day)
@@ -59,17 +60,18 @@ def _range_window(days: int):
 # =========================
 def get_today_totals():
     """
-    Produce the dashboard totals for today by fetching today's entries and
-    summing values. Uses adjusted_sugar_g if available (more accurate),
-    otherwise falls back to sugar_g.
+    Produce dashboard totals for today by fetching today's entries and summing values.
+    Uses adjusted_sugar_g if available, otherwise falls back to sugar_g.
+
+    Filters by time_eaten so "today" matches the time the user entered manually.
     """
     start, end = _today_window()
 
     resp = (
         supabase.table("entries")
         .select("*")
-        .gte("ts", start)
-        .lt("ts", end)
+        .gte("time_eaten", start)
+        .lt("time_eaten", end)
         .execute()
     )
     rows = resp.data or []
@@ -87,27 +89,29 @@ def get_today_totals():
         total_water += float(r.get("water_litre", 0) or 0)
         total_insulin += float(r.get("insulin_units", 0) or 0)
 
+    # Rounded to avoid floating-point "0.000000000..." display issues
     return {
-        "sugar_g": total_sugar,
-        "water_litre": total_water,
-        "insulin_units": total_insulin,
+        "sugar_g": round(total_sugar, 1),
+        "water_litre": round(total_water, 1),
+        "insulin_units": round(total_insulin, 1),
     }
 
 
 def get_today_entries():
     """
     Retrieve all entries made today (newest first).
-    Powers the “today list” UI so the user can see what they logged,
-    in reverse time order (most recent at the top).
+
+    Filters and sorts by time_eaten so the list order matches the time
+    the user typed in.
     """
     start, end = _today_window()
 
     resp = (
         supabase.table("entries")
         .select("*")
-        .gte("ts", start)
-        .lt("ts", end)
-        .order("ts", desc=True)
+        .gte("time_eaten", start)
+        .lt("time_eaten", end)
+        .order("time_eaten", desc=True)
         .execute()
     )
     return resp.data or []
@@ -115,9 +119,8 @@ def get_today_entries():
 
 def delete_last_today_entry() -> bool:
     """
-    Delete the most recent entry from today.
-    Allows an “undo last log” feature. Returns False if there is nothing
-    to delete, otherwise deletes the newest entry and returns True.
+    Delete the most recent entry from today (based on time_eaten ordering).
+    Returns False if there is nothing to delete.
     """
     entries = get_today_entries()
     if not entries:
@@ -130,12 +133,10 @@ def delete_last_today_entry() -> bool:
 
 def delete_all_today_entries() -> bool:
     """
-    Delete every entry from today.
-    Provides a “clear today” feature (reset the day’s logs). Returns True
-    after running the delete query.
+    Delete every entry from today (based on manual time_eaten).
     """
     start, end = _today_window()
-    supabase.table("entries").delete().gte("ts", start).lt("ts", end).execute()
+    supabase.table("entries").delete().gte("time_eaten", start).lt("time_eaten", end).execute()
     return True
 
 
@@ -203,24 +204,26 @@ def get_daily_totals(days: int):
     """
     Create summary data for history screens and charts by grouping all entries
     by date (YYYY-MM-DD) and summing sugar, water, and insulin for each day.
-    Uses adjusted_sugar_g when available for accuracy.
+
+    For grouping, we use time_eaten so the date reflects what the user entered.
     """
     start, end = _range_window(days)
 
     resp = (
         supabase.table("entries")
         .select("*")
-        .gte("ts", start)
-        .lt("ts", end)
+        .gte("time_eaten", start)
+        .lt("time_eaten", end)
         .execute()
     )
     rows = resp.data or []
 
-    buckets = {}
+    buckets: dict[str, dict[str, float]] = {}
 
     for r in rows:
-        ts = r.get("ts") or ""
-        day = ts[:10]
+        # Use manual time for day grouping
+        t = r.get("time_eaten") or ""
+        day = t[:10]
         if not day:
             continue
 
@@ -237,6 +240,13 @@ def get_daily_totals(days: int):
 
     out = []
     for day in sorted(buckets.keys()):
-        out.append({"day": day, **buckets[day]})
+        out.append(
+            {
+                "day": day,
+                "sugar_g": round(buckets[day]["sugar_g"], 1),
+                "water_litre": round(buckets[day]["water_litre"], 1),
+                "insulin_units": round(buckets[day]["insulin_units"], 1),
+            }
+        )
 
     return out
