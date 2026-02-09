@@ -143,19 +143,19 @@ def delete_all_today_entries() -> bool:
 # SETTINGS
 # =========================
 def get_sugar_limit() -> float:
-    """
-    Used for goal tracking (e.g., progress bar / warning when exceeding limit).
-    Defaults to 50.0 if the setting is missing.
-    """
     resp = (
         supabase.table("settings")
         .select("daily_sugar_limit")
         .eq("id", 1)
-        .maybe_single()  # <-- IMPORTANT: avoids crash if the row doesn't exist
+        .limit(1)
         .execute()
     )
-    row = resp.data
-    val = (row or {}).get("daily_sugar_limit")
+
+    rows = resp.data or []
+    if not rows:
+        return 50.0
+
+    val = rows[0].get("daily_sugar_limit")
     return float(val) if val is not None else 50.0
 
 
@@ -170,19 +170,19 @@ def set_sugar_limit(value: float) -> None:
 
 
 def get_insulin_effect_per_unit() -> float:
-    """
-    Retrieve insulin effectiveness used by adjusted sugar calculation.
-    Returns 0.0 if the setting is missing.
-    """
     resp = (
         supabase.table("settings")
         .select("insulin_effect_per_unit")
         .eq("id", 1)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
-    row = resp.data
-    val = (row or {}).get("insulin_effect_per_unit")
+
+    rows = resp.data or []
+    if not rows:
+        return 0.0
+
+    val = rows[0].get("insulin_effect_per_unit")
     return float(val) if val is not None else 0.0
 
 
