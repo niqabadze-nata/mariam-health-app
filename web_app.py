@@ -177,7 +177,9 @@ def settings():
     current_limit = get_sugar_limit()
     current_effect = get_insulin_effect_per_unit()
     return render_template("settings.html", limit=current_limit, effect=current_effect)
-
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204
 
 # Start the app locally (Gunicorn will run it on Render)
 if __name__ == "__main__":
