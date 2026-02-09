@@ -2,18 +2,12 @@ from datetime import datetime, date, timedelta
 from supabase_client import supabase
 from models import Entry
 
-
 # =========================
 # INSERT / CREATE
 # =========================
 def add_entry(entry: Entry) -> None:
-    """
-    Add a new health log entry into the app.
-    Stores one user action (food/sugar/water/insulin/time eaten) so the app can
-    calculate totals, show today's list, and build history charts.
-    """
     data = {
-        "ts": entry.ts.isoformat(),  # server timestamp (when saved)
+        "ts": entry.ts.isoformat(),  # when saved
         "food": entry.food,
         "sugar_g": float(entry.sugar_g or 0),
         "water_litre": float(entry.water_litre or 0),
@@ -21,7 +15,6 @@ def add_entry(entry: Entry) -> None:
         "adjusted_sugar_g": float(entry.adjusted_sugar_g or 0),
     }
 
-    # Save the manual time the user entered
     if getattr(entry, "time_eaten", None):
         data["time_eaten"] = entry.time_eaten.isoformat()
 
@@ -29,13 +22,9 @@ def add_entry(entry: Entry) -> None:
 
 
 # =========================
-# DATE HELPERS
+# DATE HELPERS (based on manual time_eaten)
 # =========================
 def _today_window():
-    """
-    Create a time filter so the app can fetch only today's records.
-    IMPORTANT: this is based on the user's manual time (time_eaten), not ts.
-    """
     d = date.today()
     start = datetime(d.year, d.month, d.day)
     end = start + timedelta(days=1)
@@ -43,11 +32,7 @@ def _today_window():
 
 
 def _range_window(days: int):
-    """
-    Create a date range filter for history views (e.g., last 7 days),
-    so the app can compute daily totals for charts/progress tracking.
-    """
-    end_date = date.today() + timedelta(days=1)  # exclusive end
+    end_date = date.today() + timedelta(days=1)
     start_date = end_date - timedelta(days=days)
 
     start = datetime(start_date.year, start_date.month, start_date.day)
@@ -59,12 +44,6 @@ def _range_window(days: int):
 # TODAY: TOTALS / LIST / DELETE
 # =========================
 def get_today_totals():
-    """
-    Produce dashboard totals for today by fetching today's entries and summing values.
-    Uses adjusted_sugar_g if available, otherwise falls back to sugar_g.
-
-    Filters by time_eaten so "today" matches the time the user entered manually.
-    """
     start, end = _today_window()
 
     resp = (
@@ -89,7 +68,6 @@ def get_today_totals():
         total_water += float(r.get("water_litre", 0) or 0)
         total_insulin += float(r.get("insulin_units", 0) or 0)
 
-    # Rounded to avoid floating-point "0.000000000..." display issues
     return {
         "sugar_g": round(total_sugar, 1),
         "water_litre": round(total_water, 1),
@@ -98,12 +76,6 @@ def get_today_totals():
 
 
 def get_today_entries():
-    """
-    Retrieve all entries made today (newest first).
-
-    Filters and sorts by time_eaten so the list order matches the time
-    the user typed in.
-    """
     start, end = _today_window()
 
     resp = (
@@ -117,24 +89,7 @@ def get_today_entries():
     return resp.data or []
 
 
-def delete_last_today_entry() -> bool:
-    """
-    Delete the most recent entry from today (based on time_eaten ordering).
-    Returns False if there is nothing to delete.
-    """
-    entries = get_today_entries()
-    if not entries:
-        return False
-
-    last_id = entries[0]["id"]
-    supabase.table("entries").delete().eq("id", last_id).execute()
-    return True
-
-
 def delete_all_today_entries() -> bool:
-    """
-    Delete every entry from today (based on manual time_eaten).
-    """
     start, end = _today_window()
     supabase.table("entries").delete().gte("time_eaten", start).lt("time_eaten", end).execute()
     return True
@@ -151,23 +106,11 @@ def get_sugar_limit() -> float:
         .limit(1)
         .execute()
     )
-
     rows = resp.data or []
     if not rows:
         return 50.0
-
     val = rows[0].get("daily_sugar_limit")
     return float(val) if val is not None else 50.0
-
-
-def set_sugar_limit(value: float) -> None:
-    """
-    Update daily sugar limit in settings.
-    Uses upsert so the row is created if it doesn't exist yet.
-    """
-    supabase.table("settings").upsert(
-        {"id": 1, "daily_sugar_limit": float(value)}
-    ).execute()
 
 
 def get_insulin_effect_per_unit() -> float:
@@ -178,22 +121,21 @@ def get_insulin_effect_per_unit() -> float:
         .limit(1)
         .execute()
     )
-
     rows = resp.data or []
     if not rows:
         return 0.0
-
     val = rows[0].get("insulin_effect_per_unit")
     return float(val) if val is not None else 0.0
 
 
-def set_insulin_effect_per_unit(value: float) -> None:
-    """
-    Update insulin effectiveness in settings.
-    Uses upsert so the row is created if it doesn't exist yet.
-    """
+def set_settings(daily_limit: float, effect_per_unit: float) -> None:
+    # IMPORTANT: always send BOTH columns so NOT NULL columns never become null
     supabase.table("settings").upsert(
-        {"id": 1, "insulin_effect_per_unit": float(value)}
+        {
+            "id": 1,
+            "daily_sugar_limit": float(daily_limit),
+            "insulin_effect_per_unit": float(effect_per_unit),
+        }
     ).execute()
 
 
@@ -201,12 +143,6 @@ def set_insulin_effect_per_unit(value: float) -> None:
 # HISTORY (DAILY TOTALS)
 # =========================
 def get_daily_totals(days: int):
-    """
-    Create summary data for history screens and charts by grouping all entries
-    by date (YYYY-MM-DD) and summing sugar, water, and insulin for each day.
-
-    For grouping, we use time_eaten so the date reflects what the user entered.
-    """
     start, end = _range_window(days)
 
     resp = (
@@ -218,10 +154,9 @@ def get_daily_totals(days: int):
     )
     rows = resp.data or []
 
-    buckets: dict[str, dict[str, float]] = {}
+    buckets = {}
 
     for r in rows:
-        # Use manual time for day grouping
         t = r.get("time_eaten") or ""
         day = t[:10]
         if not day:
@@ -248,5 +183,4 @@ def get_daily_totals(days: int):
                 "insulin_units": round(buckets[day]["insulin_units"], 1),
             }
         )
-
     return out
