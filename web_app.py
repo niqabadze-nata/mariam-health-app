@@ -99,8 +99,11 @@ def index():
             insulin = _to_float(request.form.get("insulin", "0"))
 
             # 3) Time eaten
-            time_eaten_str = request.form.get("time_eaten", "")
-            time_eaten = _parse_time(time_eaten_str) or datetime.now()
+           time_eaten_str = request.form.get("time_eaten", "").strip()
+if not time_eaten_str:
+    raise ValueError("Please enter the time (HH:MM).")
+
+time_eaten = _parse_time(time_eaten_str)
 
             # 4) Adjusted sugar
             effect = get_insulin_effect_per_unit()
